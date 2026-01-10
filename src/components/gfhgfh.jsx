@@ -1,79 +1,48 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import axios from "axios";
+import product from '../components/images/Product.jpg';
 
-function ProductsPage() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+function Dashboard() {
+  const [data, setData] = useState([]);
 
-  // ✅ GET API CALL
   useEffect(() => {
-    axios
-      .get("http://13.203.212.97:3000/products")
+    axios.get("http://13.203.212.97:3000/products")
       .then((res) => {
-        console.log("API DATA:", res.data);
-        setProducts(res.data); // 👈 array expected
+        console.log("API Response:", res.data);
+        setData(res.data.products || []); // ✅ FIX
       })
       .catch((error) => {
-        console.error("API Error:", error);
-      })
-      .finally(() => {
-        setLoading(false);
+        console.error(error);
       });
   }, []);
 
-  if (loading) {
-    return <h2 style={{ textAlign: "center" }}>Loading products...</h2>;
-  }
-
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Product List</h1>
+    <div>
+      <h1>All Products</h1>
 
-      {/* ✅ MAP FUNCTION */}
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-        {products.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              width: "220px",
-              background: "#fff"
-            }}
-          >
-            {/* Product Image */}
-            <img
-              src={item.thumbnail || "https://via.placeholder.com/200"}
-              alt={item.name}
-              style={{ width: "100%", height: "140px", objectFit: "cover" }}
-            />
+      {data.map((item) => (
+        <div key={item.id} style={{ border: "1px solid #ddd", margin: 10, padding: 10 }}>
+          
+          {/* ✅ PRODUCT IMAGE */}
+          <img
+            src={
+              item.images?.length > 0
+                ? `http://13.203.212.97:3000/uploads/${item.images[0]}`
+                : item.thumbnail
+                ? `http://13.203.212.97:3000/uploads/${item.thumbnail}`
+                : product
+            }
+            alt={item.name}
+            width="150"
+          />
 
-            {/* Product Info */}
-            <h3 style={{ margin: "10px 0" }}>{item.name}</h3>
-            <p>₹ {item.unit_price}</p>
-            <p>Stock: {item.current_stock}</p>
-            <p>
-              ⭐ {item.rating?.average} ({item.rating?.total_reviews})
-            </p>
-
-            <button
-              style={{
-                width: "100%",
-                padding: "8px",
-                background: "blue",
-                color: "white",
-                border: "none",
-                borderRadius: "5px"
-              }}
-            >
-              View Product
-            </button>
-          </div>
-        ))}
-      </div>
+          <p><b>Name:</b> {item.name}</p>
+          <p><b>Price:</b> ₹{item.unit_price}</p>
+          <p><b>Stock:</b> {item.current_stock}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-export default ProductsPage;
+export default Dashboard;
