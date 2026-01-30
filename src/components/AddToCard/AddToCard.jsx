@@ -1,35 +1,29 @@
 import React, { useState } from "react";
-
-// Sample product data matching API structure
-const sampleProduct = {
-  "id": 696,
-  "name": "Johnson's Baby Lotion 100ml (72 Units)",
-  "unit_price": 115,
-  "purchase_price": 90.85,
-  "current_stock": 103,
-  "bulk_pricing": [
-    {
-      "minQty": 3,
-      "price": 90.85
-    },
-    {
-      "minQty": 12,
-      "price": 88.55
-    }
-  ]
-};
+import { useNavigate, useLocation } from "react-router-dom";
 
 function AddToCard() {
-  const [item] = useState(sampleProduct);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const item = location.state?.item;
+  
   const [showModal, setShowModal] = useState(true);
+  const [cartCount, setCartCount] = useState(0);
 
   // State for each bulk pricing tier quantity
   const [quantities, setQuantities] = useState(
-    item.bulk_pricing ? item.bulk_pricing.map(() => 0) : [0]
+    item?.bulk_pricing ? item.bulk_pricing.map(() => 0) : [0]
   );
+
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+
+  // Load cart count
+  React.useEffect(() => {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCartCount(cart.length);
+  }, []);
 
   // Update quantity for specific tier
   const updateQuantity = (index, newQty) => {
@@ -40,7 +34,7 @@ function AddToCard() {
 
   // Calculate total quantity
   const totalQuantity = quantities.reduce((sum, qty, idx) => {
-    if (item.bulk_pricing && item.bulk_pricing[idx]) {
+    if (item?.bulk_pricing && item.bulk_pricing[idx]) {
       return sum + (qty * item.bulk_pricing[idx].minQty);
     }
     return sum;
@@ -48,7 +42,7 @@ function AddToCard() {
 
   // Calculate total price
   const totalPrice = quantities.reduce((sum, qty, idx) => {
-    if (item.bulk_pricing && item.bulk_pricing[idx]) {
+    if (item?.bulk_pricing && item.bulk_pricing[idx]) {
       const packQty = item.bulk_pricing[idx].minQty;
       const pricePerPack = item.bulk_pricing[idx].price * packQty;
       return sum + (qty * pricePerPack);
@@ -62,7 +56,7 @@ function AddToCard() {
     
     let totalCost = 0;
     quantities.forEach((qty, idx) => {
-      if (qty > 0 && item.bulk_pricing && item.bulk_pricing[idx]) {
+      if (qty > 0 && item?.bulk_pricing && item.bulk_pricing[idx]) {
         const packQty = item.bulk_pricing[idx].minQty;
         totalCost += qty * packQty * item.purchase_price;
       }
@@ -74,74 +68,67 @@ function AddToCard() {
 
   // Calculate margin for individual tier
   const calculateTierMargin = (tierPrice) => {
-    if (!item.purchase_price || item.purchase_price === 0) return 0;
+    if (!item?.purchase_price || item.purchase_price === 0) return 0;
     return (((tierPrice - item.purchase_price) / tierPrice) * 100).toFixed(2);
   };
-
-  // Minimum order amount
-  const MIN_ORDER_AMOUNT = 2000;
 
   // Function to add item to cart
   const addToCart = async () => {
     if (totalQuantity === 0) return;
     
-    if (totalPrice < MIN_ORDER_AMOUNT) {
-      setError(`Minimum order amount is ₹${MIN_ORDER_AMOUNT}. Current total: ₹${totalPrice.toFixed(2)}`);
-      return;
-    }
-    
     setLoading(true);
     setError(null);
-    setSuccess(false);
 
     try {
-      // Demo mode - simulating API call
-      console.log("Adding to cart:", {
-        product_id: item.id.toString(),
-        quantity: totalQuantity,
-        total_price: totalPrice.toFixed(2)
-      });
-
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For demo purposes - showing success
-      // In your actual app, uncomment the fetch code below:
+      // Get existing cart from localStorage
+      const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
       
-      /*
-      const response = await fetch('http://13.203.212.97:3000/cart', {
-        method: 'POST',
-        headers: {
-          'accept': '*!/!*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          product_id: item.id.toString(),
-          quantity: totalQuantity
-        })
-      });
+      // Create cart item
+      const cartItem = {
+        id: item.id || item._id,
+        name: item.name,
+        unit_price: item.unit_price,
+        purchase_price: item.purchase_price,
+        current_stock: item.current_stock,
+        bulk_pricing: item.bulk_pricing,
+        quantities: quantities,
+        totalQuantity: totalQuantity,
+        totalPrice: totalPrice,
+        margin: calculateMargin(),
+        addedAt: new Date().toISOString()
+      };
 
-      if (!response.ok) {
-        let errorMessage = 'Failed to add item to cart';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
-          console.error("Failed to parse error response:", parseError);
-        }
-        throw new Error(errorMessage);
+      // Check if item already exists in cart
+      const existingItemIndex = existingCart.findIndex(
+        cartItem => cartItem.id === (item.id || item._id)
+      );
+
+      if (existingItemIndex > -1) {
+        // Update existing item
+        existingCart[existingItemIndex] = cartItem;
+      } else {
+        // Add new item
+        existingCart.push(cartItem);
       }
 
-      const result = await response.json();
-      console.log("Success response:", result);
-      */
+      // Save to localStorage
+      localStorage.setItem('cart', JSON.stringify(existingCart));
+
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       setSuccess(true);
       
-      // Reset quantities after 1.5 seconds
+      // Dispatch custom event to update cart count in Dashboard
+      window.dispatchEvent(new Event('cartUpdated'));
+      
+      // Update local cart count
+      setCartCount(existingCart.length);
+      
+      // Close modal after showing success message
       setTimeout(() => {
-        setQuantities(item.bulk_pricing.map(() => 0));
         setSuccess(false);
+        handleClose();
       }, 1500);
       
     } catch (err) {
@@ -152,22 +139,55 @@ function AddToCard() {
     }
   };
 
-  if (!showModal) return null;
+  const handleClose = () => {
+    setShowModal(false);
+    navigate(-1); // Go back to previous page
+  };
+
+  const handleCartClick = () => {
+    navigate('/CartPage');
+  };
+
+  if (!showModal || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-100">
+    <div className="fixed inset-0 z-50 bg-gray-100">
+      {/* Dashboard Header */}
+      <header className="fixed top-0 left-0 w-full bg-blue-600 text-white p-4 z-50 shadow-md">
+        <div className="container mx-auto flex justify-between items-center px-4">
+          <h1 className="text-2xl font-bold">
+            <i className="fas fa-store mr-3"></i>
+            All Products
+          </h1>
+          
+          {/* Cart Button */}
+          <button 
+            onClick={handleCartClick}
+            className="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors relative"
+          >
+            <i className="fas fa-shopping-cart"></i>
+            <span>Cart</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/50"
-        onClick={() => setShowModal(false)}
+        onClick={handleClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white w-[95%] sm:w-[420px] md:w-[480px] lg:w-[520px] max-h-[90vh] rounded-2xl shadow-xl p-5 overflow-y-auto">
+      <div className="relative top-20 mx-auto bg-white w-[95%] sm:w-[420px] md:w-[480px] lg:w-[520px] max-h-[85vh] rounded-2xl shadow-xl p-5 overflow-y-auto">
         {/* Close */}
         <button
           className="absolute right-4 top-4 text-2xl font-bold"
-          onClick={() => setShowModal(false)}
+          onClick={handleClose}
         >
           ✕
         </button>
@@ -258,29 +278,24 @@ function AddToCard() {
         )}
         
         {success && (
-          <div className="mt-3 p-3 bg-green-100 text-green-700 rounded text-sm">
-            ✓ Item added to cart successfully!
+          <div className="mt-3 p-3 bg-green-100 text-green-700 rounded text-sm flex items-center gap-2">
+            <i className="fas fa-check-circle"></i>
+            <span>Item added to cart</span>
           </div>
         )}
 
         {/* Add to Cart Button */}
         <button
           onClick={addToCart}
-          disabled={totalQuantity === 0 || loading || totalPrice < MIN_ORDER_AMOUNT}
+          disabled={totalQuantity === 0 || loading}
           className={`w-full mt-4 py-3 rounded-lg text-white font-semibold text-base ${
-            totalQuantity === 0 || loading || totalPrice < MIN_ORDER_AMOUNT
+            totalQuantity === 0 || loading
               ? "bg-gray-300 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          {loading ? 'Adding...' : totalPrice < MIN_ORDER_AMOUNT ? `Min Order ₹${MIN_ORDER_AMOUNT}` : 'Add to Cart'}
+          {loading ? 'Adding...' : 'Add to Cart'}
         </button>
-        
-        {totalPrice > 0 && totalPrice < MIN_ORDER_AMOUNT && (
-          <p className="text-xs text-red-600 mt-2 text-center">
-            Add ₹{(MIN_ORDER_AMOUNT - totalPrice).toFixed(2)} more to place order
-          </p>
-        )}
       </div>
     </div>
   );

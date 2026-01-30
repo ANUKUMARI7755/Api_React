@@ -5,10 +5,10 @@ import OtpPage from './components/OtpPage';
 import Login from './components/Login';
 import OtpVerifying from './components/OtpVerifying';
 
-
 import AddToCard from './components/AddToCard/AddToCard';
-import Dashboard from './components/Dashboard/Dashboard';
 
+import Dashboard from './components/Dashboard/Dashboard';
+import CartPage from './components/AddToCard/CartPage';
 
 function App() {
 
@@ -24,6 +24,7 @@ function App() {
   <Route path='/Login' element={<Login/>}/>
   <Route path='/OtpVerifying' element={<OtpVerifying/>}/>
   <Route path='/Dashboard' element={<Dashboard/>}/>
+  <Route path='/CartPage' element={<CartPage/>}/>
   {/* <Route path="/ProductDetails" element={<ProductDetails />} />  ✅ ADD THIS */}
  </Routes>
 
